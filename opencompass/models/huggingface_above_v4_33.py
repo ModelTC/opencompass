@@ -10,6 +10,13 @@ from opencompass.registry import MODELS
 from opencompass.utils.logging import get_logger
 from opencompass.utils.prompt import PromptList
 
+try:
+    from llmc.compression.quantization import *
+    from llmc.models import *
+    from llmc.utils.registry_factory import ALGO_REGISTRY, MODEL_REGISTRY
+except Exception:
+    print("\n\n\n\n\n\nIf you want to eval llmc models, you should add llmc to PYTHONPATH.\n\n\n\n\n\n")
+
 PromptType = Union[PromptList, str]
 
 
@@ -217,26 +224,46 @@ class HuggingFacewithChatTemplate(BaseModel):
         raise ValueError('pad_token_id is not set for this tokenizer. Please set `pad_token_id={PAD_TOKEN_ID}` in model_cfg.')
 
     def _load_model(self, path: str, kwargs: dict, peft_path: Optional[str] = None, peft_kwargs: dict = dict()):
-        from transformers import AutoModel, AutoModelForCausalLM
-
-        DEFAULT_MODEL_KWARGS = dict(device_map='auto', trust_remote_code=True)
-        model_kwargs = DEFAULT_MODEL_KWARGS
-        model_kwargs.update(kwargs)
-        model_kwargs = _set_model_kwargs_torch_dtype(model_kwargs)
-        self.logger.debug(f'using model_kwargs: {model_kwargs}')
-
-        try:
-            self.model = AutoModelForCausalLM.from_pretrained(path, **model_kwargs)
-        except ValueError:
-            self.model = AutoModel.from_pretrained(path, **model_kwargs)
-
-        if peft_path is not None:
-            from peft import PeftModel
-            peft_kwargs['is_trainable'] = False
-            self.model = PeftModel.from_pretrained(self.model, peft_path, **peft_kwargs)
-
-        self.model.eval()
-        self.model.generation_config.do_sample = False
+        print("start to load model...")
+        if len(kwargs) == 0:
+            print("using origin opencompass")
+            from transformers import AutoModel, AutoModelForCausalLM
+            DEFAULT_MODEL_KWARGS = dict(device_map='auto', trust_remote_code=True)
+            model_kwargs = DEFAULT_MODEL_KWARGS
+            model_kwargs.update(kwargs)
+            model_kwargs = _set_model_kwargs_torch_dtype(model_kwargs)
+            self.logger.debug(f'using model_kwargs: {model_kwargs}')
+            try:
+                self.model = AutoModelForCausalLM.from_pretrained(path, **model_kwargs)
+            except ValueError:
+                self.model = AutoModel.from_pretrained(path, **model_kwargs)
+            if peft_path is not None:
+                from peft import PeftModel
+                peft_kwargs['is_trainable'] = False
+                self.model = PeftModel.from_pretrained(self.model, peft_path, **peft_kwargs)
+            self.model.eval()
+            self.model.generation_config.do_sample = False
+        else:
+            assert 'is_quant' in kwargs
+            print(f"kwargs : {kwargs}")
+            if kwargs['is_quant']:
+                print("is_quant is True")
+                model = MODEL_REGISTRY[kwargs['model']["type"]](path, kwargs['model']["torch_dtype"], device_map="auto", use_cache=True)
+                print(f"model.model : {model.model}")
+                blockwise_opt = ALGO_REGISTRY[kwargs["quant"]["method"]](
+                    model, quant_config=kwargs["quant"], input=None, config=None
+                )
+                blockwise_opt.deploy('fake_quant', True)
+                self.model = model.model
+                self.model.eval()
+                self.model.generation_config.do_sample = False
+            else:
+                print("is_quant is False")
+                model = MODEL_REGISTRY[kwargs['model']["type"]](path, kwargs['model']["torch_dtype"], device_map="auto", use_cache=True)
+                print(f"model.model : {model.model}")
+                self.model = model.model
+                self.model.eval()
+                self.model.generation_config.do_sample = False
 
 
     def get_ppl_tokenwise(self, inputs: List[str], label: List[List[int]], mask_length: Optional[List[int]] = None) -> List[float]:

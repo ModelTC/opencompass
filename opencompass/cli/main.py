@@ -316,6 +316,8 @@ def main():
             print(f"llmc_cfg : {llmc_cfg}")
             for task in tasks:
                 for model in task.models:
+                    if 'path' in model:
+                        raise Exception(f'Do not set path in opencompass config.')
                     model['path'] = args.llmc_model_path
                     if args.llmc_eval_mode == "quant":
                         model['model_kwargs'] = llmc_cfg

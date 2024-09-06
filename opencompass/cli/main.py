@@ -329,7 +329,6 @@ def main():
                         model['model_kwargs']['is_quant'] = False
                     else:
                         raise Exception(f'Not support {args.llmc_eval_mode} llmc_eval_mode.')
-            print(f"tasks : {tasks}")
         runner(tasks)
 
     # evaluate

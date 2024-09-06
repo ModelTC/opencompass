@@ -209,6 +209,7 @@ class LocalRunner(BaseRunner):
                               cfg_path=param_file,
                               template=tmpl)
             cmd = get_cmd()
+            print(f"opencompass cmd : {cmd}")
 
             logger = get_logger()
             logger.debug(f'Running command: {cmd}')

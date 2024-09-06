@@ -249,7 +249,6 @@ class HuggingFacewithChatTemplate(BaseModel):
             if kwargs['is_quant']:
                 print("is_quant is True")
                 model = MODEL_REGISTRY[kwargs['model']["type"]](path, kwargs['model']["torch_dtype"], device_map="auto", use_cache=True)
-                print(f"model.model : {model.model}")
                 blockwise_opt = ALGO_REGISTRY[kwargs["quant"]["method"]](
                     model, quant_config=kwargs["quant"], input=None, config=None
                 )
@@ -260,10 +259,10 @@ class HuggingFacewithChatTemplate(BaseModel):
             else:
                 print("is_quant is False")
                 model = MODEL_REGISTRY[kwargs['model']["type"]](path, kwargs['model']["torch_dtype"], device_map="auto", use_cache=True)
-                print(f"model.model : {model.model}")
                 self.model = model.model
                 self.model.eval()
                 self.model.generation_config.do_sample = False
+        print(f"opencompass self.model : {self.model}")
 
 
     def get_ppl_tokenwise(self, inputs: List[str], label: List[List[int]], mask_length: Optional[List[int]] = None) -> List[float]:
